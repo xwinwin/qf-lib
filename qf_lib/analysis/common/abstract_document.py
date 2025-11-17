@@ -207,7 +207,7 @@ class AbstractDocument(metaclass=ABCMeta):
     def _get_rolling_chart(self, timeseries_list, rolling_function, function_name):
         freq = timeseries_list[0].get_frequency()
         timeseries_list = [tms.dropna().to_prices(1) for tms in timeseries_list]
-        df = pd.concat(timeseries_list, axis=1).fillna(method='ffill')
+        df = pd.concat(timeseries_list, axis=1).ffill()
 
         rolling_window_len = int(freq.value / 2)  # 6M rolling
         step = round(freq.value / 6)  # 2M shift

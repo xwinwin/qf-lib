@@ -46,7 +46,7 @@ def _single_series_usage(data_provider):
 def _dataframe_usage(data_provider):
     df = data_provider.get_price(
         tickers=many_tickers, fields=PriceField.Close, start_date=start_date, end_date=end_date)
-    df.fillna(method='ffill', inplace=True)
+    df.ffill(inplace=True)
     print(TimeseriesAnalysis.table_for_df(df))
     return df
 

@@ -64,7 +64,7 @@ class SimpleFuturesModel(FuturesModel):
         # Get the data frame containing High, Low, Close prices
         data_frame = self.futures_chain.get_price([PriceField.High, PriceField.Low, PriceField.Close], start_time,
                                                   current_time)
-        data_frame = data_frame.dropna(how='all').fillna(method='pad')
+        data_frame = data_frame.dropna(how='all').ffill()
 
         close_tms = data_frame[PriceField.Close]
         close_tms = close_tms.iloc[-self.slow_time_period:]

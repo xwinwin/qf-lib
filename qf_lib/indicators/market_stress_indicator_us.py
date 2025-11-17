@@ -62,7 +62,8 @@ class MarketStressIndicator:
         """
         underlying_start_date = start_date - timedelta(days=floor(years_rolling * 365 * 1.1))
         data = self.data_provider.get_price(self.tickers, PriceField.Close, underlying_start_date, end_date)
-        data = data.fillna(method='ffill')
+        data = data.ffill()
+        # data = data.dropna() # this line can be enabled but it will shift starting point by the years_rolling
 
         window_size = floor(252 * years_rolling)
         stress_indicator_tms = data.rolling_time_window(

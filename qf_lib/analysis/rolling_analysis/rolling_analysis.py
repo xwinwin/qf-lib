@@ -32,7 +32,7 @@ class RollingAnalysisFactory:
         benchmark_name = benchmark_tms.name
         df[strategy_name] = strategy_tms.to_prices()
         df[benchmark_name] = benchmark_tms.to_prices()
-        df.fillna(method='ffill', inplace=True)
+        df.ffill(inplace=True)
 
         for window_info in windows:
             window = window_info[0]

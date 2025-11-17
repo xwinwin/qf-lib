@@ -148,7 +148,7 @@ class FuturesModel(AlphaModel, metaclass=abc.ABCMeta):
     def compute_atr(self, prices_df: PricesDataFrame):
         try:
             prices_df = prices_df[[PriceField.Close, PriceField.Open, PriceField.High, PriceField.Low]]
-            prices_df = prices_df.dropna(how='all').fillna(method='ffill').dropna()
+            prices_df = prices_df.dropna(how='all').ffill().dropna()
             #   Compute the ATR
             atr_values = average_true_range(prices_df.iloc[-self.num_of_bars_atr:], normalized=True)
         except Exception:

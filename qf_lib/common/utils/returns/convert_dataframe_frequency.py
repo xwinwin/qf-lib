@@ -33,7 +33,7 @@ def convert_dataframe_frequency(dataframe: QFDataFrame, frequency: Frequency) ->
     if frequency == Frequency.DAILY:
         return dataframe.to_simple_returns()
 
-    filled_df = dataframe.to_prices().fillna(method="ffill")
+    filled_df = dataframe.to_prices().ffill()
     new_columns = {}
     for column in filled_df:
         new_columns[column] = get_aggregate_returns(filled_df[column], frequency)
