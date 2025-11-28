@@ -47,7 +47,7 @@ class TestReturnsUtils(TestCase):
         prices_dates = date_range('2014-12-31', periods=1, freq='D').append(self.return_dates)
         self.test_prices_tms = PricesSeries(data=prices_values, index=prices_dates)
         self.test_dd_prices_tms = PricesSeries(data=[100, 90, 80, 70, 95, 100, 100, 200, 100, 50, 100, 200, 150],
-                                               index=date_range('2015-01-01', periods=13, freq='M'))
+                                               index=date_range('2015-01-01', periods=13, freq='ME'))
         self.test_returns = [0.01, 0.02, 0.03, 0.02, 0.01, 0, -0.01, -0.02, 0.01, 0.03, 0.05, 0.04, 0.03, 0.02,
                              0.01, 0, 0.01, 0.03, 0.02, 0.04]
         self.test_simple_returns_tms = SimpleReturnsSeries(data=self.test_returns, index=self.return_dates, dtype=float)

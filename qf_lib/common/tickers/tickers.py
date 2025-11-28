@@ -78,7 +78,7 @@ class Ticker(metaclass=ABCMeta):
         self.currency = currency
 
     @abstractmethod
-    def from_string(self, ticker_str: Union[str, Sequence[str]]) -> Union['Ticker', Sequence['Ticker']]:
+    def from_string(cls, ticker_str: Union[str, Sequence[str]]) -> Union['Ticker', Sequence['Ticker']]:
         """ Allows creation of a ticker from a string """
         pass
 
@@ -131,14 +131,14 @@ class BloombergTicker(Ticker):
 
     @classmethod
     def from_string(cls, ticker_str: Union[str, Sequence[str]], security_type: SecurityType = SecurityType.STOCK,
-                    point_value: int = 1, currency: Optional[str] = None) -> Union["BloombergTicker", Sequence["BloombergTicker"]]:
+                    point_value: int = 1, currency: Optional[str] = None) -> Union['Ticker', Sequence['Ticker']]:
         """
         Example: BloombergTicker.from_string('SPX Index')
         """
         if isinstance(ticker_str, str):
-            return BloombergTicker(ticker_str, security_type, point_value, currency)
+            return cls(ticker_str, security_type, point_value, currency)
         else:
-            return [BloombergTicker(t, security_type, point_value, currency) for t in ticker_str]
+            return [cls(t, security_type, point_value, currency) for t in ticker_str]
 
 
 class PortaraTicker(Ticker):
@@ -162,11 +162,11 @@ class PortaraTicker(Ticker):
 
     @classmethod
     def from_string(cls, ticker_str: Union[str, Sequence[str]], security_type: SecurityType = SecurityType.STOCK,
-                    point_value: int = 1, currency: Optional[str] = None) -> Union["PortaraTicker", Sequence["PortaraTicker"]]:
+                    point_value: int = 1, currency: Optional[str] = None) -> Union['Ticker', Sequence['Ticker']]:
         if isinstance(ticker_str, str):
-            return PortaraTicker(ticker_str, security_type, point_value, currency)
+            return cls(ticker_str, security_type, point_value, currency)
         else:
-            return [PortaraTicker(t, security_type, point_value, currency) for t in ticker_str]
+            return [cls(t, security_type, point_value, currency) for t in ticker_str]
 
 
 class BinanceTicker(Ticker):
@@ -201,7 +201,7 @@ class BinanceTicker(Ticker):
         self._rounding_precision = rounding_precision
 
     @classmethod
-    def from_string(self, ticker_str: Union[str, Sequence[str]]) -> Union['Ticker', Sequence['Ticker']]:
+    def from_string(cls, ticker_str: Union[str, Sequence[str]]) -> Union['Ticker', Sequence['Ticker']]:
         raise NotImplementedError('Binance from_string method is not implemented. Please use init function.')
 
     @property
@@ -248,7 +248,7 @@ class HaverTicker(Ticker):
 
     @classmethod
     def from_string(cls, ticker_str: Union[str, Sequence[str]], security_type: SecurityType = SecurityType.STOCK,
-                    point_value: int = 1, currency: Optional[str] = None) -> Union["HaverTicker", Sequence["HaverTicker"]]:
+                    point_value: int = 1, currency: Optional[str] = None) -> Union['Ticker', Sequence['Ticker']]:
         """ Example: HaverTicker.from_string('RECESSQ2@USECON') """
 
         def to_ticker(ticker_string: str):
@@ -306,7 +306,7 @@ class QuandlTicker(Ticker):
     @classmethod
     def from_string(cls, ticker_str: Union[str, Sequence[str]], db_type: QuandlDBType = QuandlDBType.Timeseries,
                     security_type: SecurityType = SecurityType.STOCK, point_value: int = 1,
-                    currency: Optional[str] = None) -> Union["QuandlTicker", Sequence["QuandlTicker"]]:
+                    currency: Optional[str] = None) -> Union['Ticker', Sequence['Ticker']]:
         """
         Example: QuandlTicker.from_string('WIKI/MSFT')
         Note: this method supports only the Timeseries tickers at the moment.
@@ -314,7 +314,7 @@ class QuandlTicker(Ticker):
 
         def to_ticker(ticker_string: str):
             db_name, ticker = ticker_string.rsplit('/', 1)
-            return QuandlTicker(ticker, db_name, db_type, security_type=security_type,
+            return cls(ticker, db_name, db_type, security_type=security_type,
                                 point_value=point_value, currency=currency)
 
         if isinstance(ticker_str, str):
@@ -329,11 +329,11 @@ class YFinanceTicker(Ticker):
         super().__init__(ticker, security_type, point_value, currency)
 
     @classmethod
-    def from_string(self, ticker_str: Union[str, Sequence[str]]) -> Union['Ticker', Sequence['Ticker']]:
+    def from_string(cls, ticker_str: Union[str, Sequence[str]]) -> Union['Ticker', Sequence['Ticker']]:
         if isinstance(ticker_str, str):
-            return YFinanceTicker(ticker_str)
+            return cls(ticker_str)
         else:
-            return [YFinanceTicker(t) for t in ticker_str]
+            return [cls(t) for t in ticker_str]
 
 
 class AlpacaTicker(Ticker):
@@ -342,8 +342,32 @@ class AlpacaTicker(Ticker):
         super().__init__(ticker, security_type, point_value, currency)
 
     @classmethod
-    def from_string(self, ticker_str: Union[str, Sequence[str]]) -> Union['Ticker', Sequence['Ticker']]:
+    def from_string(cls, ticker_str: Union[str, Sequence[str]]) -> Union['Ticker', Sequence['Ticker']]:
         if isinstance(ticker_str, str):
-            return AlpacaTicker(ticker_str)
+            return cls(ticker_str)
         else:
-            return [AlpacaTicker(t) for t in ticker_str]
+            return [cls(t) for t in ticker_str]
+        
+class QLibTicker(Ticker):
+    def __init__(self, ticker: str, security_type: SecurityType = SecurityType.STOCK,
+                 point_value: int = 1, currency: Optional[str] = None):
+        super().__init__(ticker, security_type, point_value, currency)
+
+    @classmethod
+    def from_string(cls, ticker_str: Union[str, Sequence[str]]) -> Union['Ticker', Sequence['Ticker']]:
+        if isinstance(ticker_str, str):
+            return cls(ticker_str)
+        else:
+            return [cls(t) for t in ticker_str]
+
+class FutuTicker(Ticker):
+    def __init__(self, ticker: str, security_type: SecurityType = SecurityType.STOCK,
+                 point_value: int = 1, currency: Optional[str] = None):
+        super().__init__(ticker, security_type, point_value, currency)
+
+    @classmethod
+    def from_string(cls, ticker_str: Union[str, Sequence[str]]) -> Union['Ticker', Sequence['Ticker']]:
+        if isinstance(ticker_str, str):
+            return cls(ticker_str)
+        else:
+            return [cls(t) for t in ticker_str]

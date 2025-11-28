@@ -24,11 +24,11 @@ class DummyTicker(Ticker):
 
     @classmethod
     def from_string(cls, ticker_str: Union[str, Sequence[str]]) \
-            -> Union["DummyTicker", Sequence["DummyTicker"]]:
+            -> Union["Ticker", Sequence["Ticker"]]:
         """
         Example: DummyTicker.from_string('AAA')
         """
         if isinstance(ticker_str, str):
-            return DummyTicker(ticker_str)
+            return cls(ticker_str)
         else:
-            return [DummyTicker(t) for t in ticker_str]
+            return [cls(t) for t in ticker_str]

@@ -15,11 +15,11 @@ import warnings
 from datetime import datetime
 from typing import Set, Type, Union, Sequence, Dict, Optional
 
-from pandas import MultiIndex
+import pandas as pd
 
 from qf_lib.common.enums.frequency import Frequency
 from qf_lib.common.enums.price_field import PriceField
-from qf_lib.common.tickers.tickers import Ticker, YFinanceTicker
+from qf_lib.common.tickers.tickers import Ticker, FutuTicker
 from qf_lib.common.utils.dateutils.relative_delta import RelativeDelta
 from qf_lib.common.utils.dateutils.timer import Timer
 from qf_lib.common.utils.miscellaneous.to_list_conversion import convert_to_list
@@ -27,19 +27,19 @@ from qf_lib.containers.dataframe.qf_dataframe import QFDataFrame
 from qf_lib.containers.qf_data_array import QFDataArray
 from qf_lib.containers.series.qf_series import QFSeries
 from qf_lib.data_providers.abstract_price_data_provider import AbstractPriceDataProvider
-from qf_lib.data_providers.helpers import normalize_data_array
+from qf_lib.data_providers.helpers import normalize_data_array, tickers_dict_to_data_array
 
 try:
-    import yfinance as yf
+    import futu as ft
 
-    is_yfinance_installed = True
+    is_futu_installed = True
 except ImportError:
-    is_yfinance_installed = False
+    is_futu_installed = False
 
 
-class YFinanceDataProvider(AbstractPriceDataProvider):
+class FutuDataProvider(AbstractPriceDataProvider):
     """
-    Data Provider using the yfinance library to provide historical data of various frequencies.
+    Data Provider using the futu openapi library to provide historical data of various frequencies.
 
     Parameters
     -----------
@@ -50,21 +50,44 @@ class YFinanceDataProvider(AbstractPriceDataProvider):
     def __init__(self, timer: Optional[Timer] = None):
         super().__init__(timer)
 
-        if not is_yfinance_installed:
-            warnings.warn("yfinance ist not installed. If you would like to use YFinanceDataProvider first install the"
-                          " yfinance library.")
+        if not is_futu_installed:
+            warnings.warn("futu openapi is not installed. If you would like to use FutuDataProvider first install the"
+                          " futu openapi library.")
             exit(1)
 
     def price_field_to_str_map(self, *args) -> Dict[PriceField, str]:
         return {
-            PriceField.Open: 'Open',
-            PriceField.High: 'High',
-            PriceField.Low: 'Low',
-            PriceField.Close: 'Close',
-            PriceField.Volume: 'Volume'
+            PriceField.Open: 'open',
+            PriceField.High: 'high',
+            PriceField.Low: 'low',
+            PriceField.Close: 'close',
+            PriceField.Volume: 'volume'
         }
 
-    def get_history(self, tickers: Union[Ticker, Sequence[Ticker]], fields: Union[None, str, Sequence[str]],
+    def _field_to_futu_field(self, field: str) -> str|None:
+        fields_to_futu_map = {
+            'open': ft.KL_FIELD.OPEN,
+            'high': ft.KL_FIELD.HIGH,
+            'low': ft.KL_FIELD.LOW,
+            'close': ft.KL_FIELD.CLOSE,
+            'volume': ft.KL_FIELD.TRADE_VAL
+        }
+
+        if isinstance(field, PriceField):
+            f = field
+            field_str_map = self.price_field_to_str_map()
+            try:
+                f = fields_to_futu_map[field]
+            except KeyError:
+                raise ValueError(f"Field must be one of the supported fields: {field_str_map.keys()}.") from None
+        try:
+            f = fields_to_futu_map[field]
+        except KeyError:
+            raise TypeError("Field must be either PriceField or str.") from None
+        
+        return f
+
+    def get_history(self, tickers: Union[Ticker, Sequence[Ticker]], fields: Union[str, Sequence[str]],
                     start_date: datetime, end_date: Optional[datetime] = None, frequency: Optional[Frequency] = None,
                     look_ahead_bias: bool = False, auto_adjust: bool = True, **kwargs) \
             -> Union[QFSeries, QFDataFrame, QFDataArray]:
@@ -73,7 +96,7 @@ class YFinanceDataProvider(AbstractPriceDataProvider):
 
         Parameters
         ----------
-        tickers: YFinanceTicker, Sequence[YFinanceTicker]
+        tickers: FutuTicker, Sequence[FutuTicker]
             tickers for securities which should be retrieved
         fields: None, str, Sequence[str]
             fields of securities which should be retrieved.
@@ -113,36 +136,71 @@ class YFinanceDataProvider(AbstractPriceDataProvider):
         start_date = self._adjust_start_date(start_date, frequency)
         got_single_date = self._got_single_date(start_date, original_end_date, frequency)
 
-        tickers, got_single_ticker = convert_to_list(tickers, YFinanceTicker)
-        fields, got_single_field = convert_to_list(fields, (PriceField, str))
+        tickers, got_single_ticker = convert_to_list(tickers, FutuTicker)
+        fields, got_single_field = convert_to_list(fields, str)
 
-        tickers_str = [t.as_string() for t in tickers]
-        df = yf.download(list(set(tickers_str)), start_date, end_date, keepna=True,
-                         interval=self._frequency_to_period(frequency),
-                         auto_adjust=auto_adjust,
-                         progress=False)
-        df = df.reindex(columns=MultiIndex.from_product([fields, tickers_str]))
-        values = df.values.reshape(len(df), len(tickers), len(fields))
-        qf_data_array = QFDataArray.create(df.index.rename("dates"), tickers, fields, values)
+        futu_ktype = self._frequency_to_period(frequency)
+        futu_fields = [self._field_to_futu_field(field) for field in fields]
+
+        tickers_df_dict = {}
+        available_fields = list()
+
+        quote_ctx = ft.OpenQuoteContext(host='127.0.0.1', port=11111)
+
+        for ticker in tickers:
+            df = None
+            ret, df, page_req_key = quote_ctx.request_history_kline(ticker.as_string(), start=start_date.strftime('%Y-%m-%d'), end=end_date.strftime('%Y-%m-%d'), ktype=futu_ktype, session=ft.Session.ALL)  # 每页5个，请求第一页
+            if ret != ft.RET_OK:
+                warnings.warn(f'get {ticker.as_string()} history kline error: {df}')
+                continue
+
+            while page_req_key != None:  # 请求后面的所有结果
+                ret, data, page_req_key = quote_ctx.request_history_kline(ticker.as_string(), start=start_date.strftime('%Y-%m-%d'), end=end_date.strftime('%Y-%m-%d'), ktype=futu_ktype, page_req_key=page_req_key, session=ft.Session.ALL) # 请求翻页后的数据
+                if ret == ft.RET_OK:
+                    df = pd.concat(df, data)
+                else:
+                    warnings.warn(f'get {ticker.as_string()} history kline error: {data}, page_req_key: {page_req_key}')
+                    break
+
+            df.reset_index(inplace=True)
+            df.index = pd.to_datetime(df['time_key'])
+            df = df[~df.index.duplicated(keep='first')]
+            df = df.drop('time_key', axis=1)
+
+            if fields:
+                available_fields = list(fields)
+                df = df.loc[:, df.columns.isin(fields)]
+                fields_diff = set(fields).difference(df.columns)
+                if fields_diff:
+                    self.logger.info(f"Not all fields are available for {ticker}. Difference: {fields_diff}")
+            else:
+                available_fields = df.columns.tolist()
+
+            tickers_df_dict[ticker] = df
+
+        quote_ctx.close() # 结束后记得关闭当条连接，防止连接条数用尽
+
+        qf_data_array = tickers_dict_to_data_array(tickers_df_dict, list(tickers_df_dict.keys()) if tickers_df_dict else list(), available_fields)
+        
         return normalize_data_array(
             qf_data_array, tickers, fields, got_single_date, got_single_ticker, got_single_field, use_prices_types=False
         )
 
     def supported_ticker_types(self) -> Set[Type[Ticker]]:
-        return {YFinanceTicker}
+        return {FutuTicker}
 
     @staticmethod
     def _frequency_to_period(freq: Frequency):
         frequencies_mapping = {
-            Frequency.MIN_1: '1m',
-            Frequency.MIN_5: '5m',
-            Frequency.MIN_15: '15m',
-            Frequency.MIN_30: '30m',
-            Frequency.MIN_60: '60m',
-            Frequency.DAILY: '1d',
-            Frequency.WEEKLY: '1wk',
-            Frequency.MONTHLY: '1mo',
-            Frequency.QUARTERLY: '3mo',
+            Frequency.MIN_1: ft.KLType.K_1M,
+            Frequency.MIN_5: ft.KLType.K_5M,
+            Frequency.MIN_15: ft.KLType.K_15M,
+            Frequency.MIN_30: ft.KLType.K_30M,
+            Frequency.MIN_60: ft.KLType.K_60M,
+            Frequency.DAILY: ft.KLType.K_DAY,
+            Frequency.WEEKLY: ft.KLType.K_WEEK,
+            Frequency.MONTHLY: ft.KLType.K_MON,
+            Frequency.QUARTERLY: ft.KLType.K_QUARTER,
         }
 
         try:

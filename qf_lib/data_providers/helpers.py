@@ -192,7 +192,7 @@ def tickers_dict_to_data_array(tickers_data_dict: Dict[Ticker, QFDataFrame],
     if not isinstance(requested_fields, Sequence) or isinstance(requested_fields, str):
         requested_fields, _ = convert_to_list(requested_fields, type(requested_fields))
 
-    if not tickers_data_dict:
+    if not tickers_data_dict or len(tickers_data_dict) == 0:
         return QFDataArray.create(dates=[], tickers=requested_tickers, fields=requested_fields)
 
     tickers = []

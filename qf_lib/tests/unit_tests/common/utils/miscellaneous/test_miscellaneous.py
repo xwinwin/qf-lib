@@ -41,7 +41,7 @@ class TestMiscellaneousUtils(TestCase):
         self.test_returns_tms = SimpleReturnsSeries(data=self.test_returns, index=self.return_dates, dtype=float)
 
         monthly_returns = [0.05, 0.03, -0.1, 0.2, -0.01, -0.01]
-        monthly_return_dates = date_range('2015-01-01', periods=6, freq='M')
+        monthly_return_dates = date_range('2015-01-01', periods=6, freq='ME')
         self.monthly_ret_series = SimpleReturnsSeries(data=monthly_returns, index=monthly_return_dates, dtype=float)
 
     def test_annualise_with_sqrt(self):

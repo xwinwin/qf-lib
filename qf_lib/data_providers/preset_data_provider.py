@@ -247,7 +247,7 @@ class PresetDataProvider(AbstractPriceDataProvider, FuturesDataProvider):
 
     def get_history(self, tickers: Union[Ticker, Sequence[Ticker]],
                     fields: Union[Any, Sequence[Any]],
-                    start_date: datetime, end_date: datetime = None, frequency: Frequency = None,
+                    start_date: datetime, end_date: Optional[datetime] = None, frequency: Optional[Frequency] = None,
                     look_ahead_bias: bool = False, **kwargs
                     ) -> Union[QFSeries, QFDataFrame, QFDataArray]:
 
